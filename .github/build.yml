@@ -1,0 +1,28 @@
+name: Create the Docker Image
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: create the build of image
+    runs-on: ubuntu-latest    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to Docker Hub
+        run: |
+          echo ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+
+      - name: Build and Push to Docker Hub
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/logs-generator:latest \
+            --push .
