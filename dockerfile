@@ -1,40 +1,49 @@
-# Use the official Node.js image with Alpine as the base image
-FROM node:18-alpine AS builder
+# Build stage
+FROM node:20-alpine AS builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy package.json and lock files to leverage Docker cache
-COPY package.json package-lock.json* pnpm-lock.yaml* ./
+# Install pnpm
+RUN npm install -g pnpm
 
-# Install dependencies based on the lock file
-RUN if [ -f pnpm-lock.yaml ]; then npm install -g pnpm && pnpm install; \
-    else npm install; fi
+# Copy package files
+COPY package.json ./
+COPY pnpm-lock.yaml* ./
 
-# Copy all files from the current directory to the container
+# Install dependencies
+RUN pnpm install
+
+# Copy source code
 COPY . .
 
-# Build the Next.js application
-RUN npm run build
+# Build the application
+RUN pnpm build
 
-# Use a smaller image for production
-FROM node:18-alpine AS runner
+# Runtime stage
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Copy only necessary files from the builder stage
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder /app/node_modules ./node_modules
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json ./
+COPY pnpm-lock.yaml* ./
+
+# Install only production dependencies
+RUN pnpm install --prod
+
+# Copy built application from builder stage
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./
 
-# Environment variables (adjust as needed)
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Expose the port the app runs on
+# Expose port
 EXPOSE 3000
 
-# Command to run the application
-CMD ["npm", "start"]
+# Set environment variable
+ENV NODE_ENV=production
+
+# Start the application
+
+CMD ["pnpm", "start"]
